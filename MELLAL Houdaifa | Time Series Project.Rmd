@@ -1,0 +1,432 @@
+## instalation des deux packages tseries et forcast:
+
+```{r}
+install.packages('tseries')
+install.packages('forecast')
+```
+
+
+
+```{r}
+library(lubridate)
+library(tseries)
+library(forecast)
+library("TTR")
+```
+
+# 1. Exploration des données:
+
+```{r}
+data <- read.csv(file = "./day.csv")
+dim(data)
+```
+
+## 1.1. Exploration du changement de la tempurature durant les saisons:
+
+Pour le faire, on ajoute une nouvelle variable donnée temp.cel qui represente la temperature celcuis de chaque jour:
+
+```{r}
+data$temp.cel <- data$temp*(39 + 8) - 8
+temp <- ts(data$temp.cel)
+plot(temp, main = "La temperature pendant 2 ans", ylab="Temperature", col="blue", xlab="Les jours")
+```
+
+On peux remarquer clairement que la temperature durant les deux années, on a la temperature qui commence avec une valeur faible, puis augmante jusqu'a un pic, afin de redesendre encore une fois, ceci est expliqués par les différents saisons de l'année.
+
+## 1.2. Les moyennes de temperature pour les different saisons:
+
+```{r}
+temp.printemps <- subset(data, season == 2)$temp.cel
+print( 'le mean du printemps est de :')
+print(mean(temp.printemps))
+```
+```{r}
+print( 'le median du printemps est de :')
+print(median(temp.printemps))
+```
+
+```{r}
+summer.temp <- subset(data, season == 3)$temp.cel
+print( 'le mean de l été est de :')
+print(mean(summer.temp))
+print( 'le median de l été est de :')
+print(median(summer.temp))
+
+```
+
+```{r}
+fall.temp <- subset(data, season == 2)$temp.cel
+print( 'le mean de l automne est de :')
+print(mean(fall.temp))
+print( 'le median de l automne est de :')
+print(median(fall.temp))
+
+```
+
+```{r}
+winter.temp <- subset(data, season == 1)$temp.cel
+print( 'le mean de l hiver est de :')
+print(mean(winter.temp))
+print( 'le median de l hiver est de :')
+print(median(winter.temp))
+```
+
+On peux remarquer des différents résultats que la temperature est moyenne dans les deux saisons Pritements et automne, et bas pendant l'hiver, et hautte pendant l'été.
+
+## 1.3. La corrélation : 
+
+Après l'ajout de deux nouvelle colonnes atemps.cel et mean.temp.atemp : 
+```{r}
+data$atemp.cel <- data$atemp*(50 + 16) - 16
+data$mean.temp.atemp = (data$temp.cel + data$atemp.cel)/2
+```
+
+On peux afficher les correlation entre ces derniers:
+
+
+1. La corélation entre la temperature en celcuis et le count:
+```{r}
+cor(data$temp.cel, data$cnt, method = c("pearson"))
+```
+
+Le résultat est de 0.62, ce qui indique qu'il y'a une forte corrélation entre le nombre des vélos utilisés et la temperature.
+
+
+2. Corrélation entre temperature moyenne et le count 
+```{r}
+cor(data$mean.temp.atemp, data$cnt, method = c("pearson"))
+
+```
+On peux remarquer également qu'il y'a une forte corrélation entre la temperature moyenne, et le nombre des vélos loués.
+
+## 1.4 Affichage des informations moyennes :
+
+```{r}
+header <- c("Le mois", "Temperature moyenne", "La moyenne de l'humidité", "La moyenne de la vitesse de vent", "nombre totale des locations")
+per.months.df <- data.frame()
+for (i in (1:12)) {
+  sub.data <- subset(data, mnth == i)
+  line <-  c(i, mean((sub.data)$temp.cel), mean((sub.data)$hum*100), 
+             mean((sub.data)$windspeed*67), sum((sub.data)$cnt))
+  per.months.df = rbind(per.months.df, line)
+}
+colnames(per.months.df) <- header
+per.months.df
+```
+## 1.5 La correlation entre le Rentals ( Registred et Casual) et la temperature :
+
+On commence tout d'abord par calculer les corrélations:
+
+```{r}
+cor(data$temp.cel, data$casual, method = c("pearson"))
+```
+```{r}
+cor(data$temp.cel, data$registered, method = c("pearson"))
+```
+On peux remarquer qu'il y'a une corrélation entre la temperature et les Rentals qui est de 0.54, c'est une corrélation importante.
+
+
+```{r}
+day.casual <- ts(data$casual)
+day.registered <- ts(data$registered)
+par(mfrow=c(2,1))
+plot(temp, day.casual, type="h", xlab="Temperature", ylab="Count of casual users")
+plot(temp, day.registered, type="h", xlab="Temperature", ylab="Count of registered users")
+```
+
+
+```{r}
+seqplot.ts(day.casual, day.registered, ylab = "Casual, Registred", xlab="Time by day index (1 -> 2011-01-01)")
+
+```
+
+
+
+On peux remarquer que les deux rentals varie d'une façon identique en fonciton de la temperature, ou on remarque que sur certain plages de temperature, le valeurs de rentals sont plus elevés que sur d'autre. 
+
+##1.6 Affichage de la cnt contre dteday:
+
+```{r}
+plot(data$cnt, col="blue")
+```
+On peux remarquer qu'il y'a une tendance qui augmante, puis déminue, puis augmante encore une fois, et déminue encore. 
+
+On peux remarquer également qu'il y'a certain outliers.
+
+
+#1.7 Nettoyage des données:
+
+Dans cette phase, on va supprimer les outliers et les données manquantes:
+
+```{r}
+
+day.cnt <- tsclean(data$cnt)
+outliners <- data$cnt[day.cnt!=data$cnt]
+outliners
+```
+On peux remarquer qu'on a supprimé 5 outliers, le graph est le suivant après la retrait des outliers:
+
+```{r}
+plot(day.cnt)
+```
+
+
+##1.8. Utiliser HoltWinters pour lisser les données:
+
+On mis gamma a FALSE, car on a pas de saison visible sur notre plot.
+
+```{r}
+day.cnt.smoothed.se <- HoltWinters(day.cnt, gamma=FALSE)
+day.cnt.smoothed.se
+```
+Le graph après le lissage est devenu :
+
+```{r}
+plot(day.cnt.smoothed.se)
+```
+
+
+On plot les données lisser pour qu'il nous donne le plot suivant: 
+
+```{r}
+plot(day.cnt.smoothed.se$fitted[,1])
+```
+
+
+#2. Utilisation des données lisser: 
+
+##2.1. Ajout de la fréquence :
+
+afin de pouvoir avoir distinguer des saisons, on ajoute des frequences spécifier a notre data, on peux regrouper nos données par des mois, et donc un groupe de 30 jours, ce qui nous donne une frequence de 30.
+
+```{r}
+count_ma <- ts(day.cnt.smoothed.se$fitted[,1], frequency = 30)
+plot(count_ma, col="blue")
+```
+
+
+## 2.2. Staionarité et saisonalité: 
+
+Afin de pouvoir visualiser la stationnarité et la saisonalité, on utilise la méthode de décomposition:
+
+```{r}
+count_ma.decomposed <- decompose(count_ma)
+plot(count_ma.decomposed, col="blue")
+```
+On peux remarquer clairement qu'il y'a une tendence ainsi qu'une saison, notre graph est composé de 24 saisons ou chaque 12 represent un ans, et se repète a l'année prochaine. 
+
+En terme de stationarité, les données ne sont pas stationnaire par ce qu'elles contiennt une tendence et une saison.
+
+#3. Modèle Arima avec les données lissés: 
+
+#3.1. Les modèles candidats: 
+
+afin de rendre les données stationnaire, on va appliquer une décomposition pour la saisonalité et une décomposition pour la tendence:
+
+```{r}
+diff_data <- diff(diff(count_ma,12))
+plot.ts(diff_data)
+```
+
+On peux remarquer que nos données sont devenu stationnaire après l'application de deux diff. Aucune saison n'est visible, ni tendence.
+
+On affiche ensuite les plots des corrélation acf et pacf afin de pouvoir choisir les paramètres des modèles:
+
+```{r}
+acf(diff_data) 
+```
+```{r}
+pacf(diff_data)
+```
+
+A partir des deux graphes de corrélation ACF et PACF, on peux s'en sortir avec les informations suivants: 
+
+D = 1 ( Diffirentiation par rapport a la season ) | d = 1 ( diff par rapport a la tendance )
+
+q = 5 et Q = 1 (ACF)
+
+p = 4 et P = 2 (PACF)
+
+Les modèles candidats sont donc:
+
+SARIMA(4,1,0)(2,1,0)
+SARIMA(0,1,5)(0,1,1)
+SARIMA(4,1,5)(2,1,1)
+
+On applique le premier modèle candidat : 
+
+```{r}
+count_ma.ARIMA1 <- arima(count_ma, order = c(0,1,5), seasonal=c(0,1,1))
+```
+
+Afin de voir la performance de notre modèle, on visualise ces paramètres ainsi que l'acf et le pacf de résiduls afin de confirmer que c'est des bruits blancs:
+
+```{r}
+count_ma.ARIMA1
+
+```
+
+```{r}
+plot(count_ma.ARIMA1$residuals)
+```
+```{r}
+acf(count_ma.ARIMA1$residuals)
+
+```
+
+```{r}
+pacf(count_ma.ARIMA1$residuals)
+
+```
+On peux remarquer que y'a pas des informations sur l'acf et pacf, donc le résiduls et un bruit blanc, donc pas d'information manquantes.
+
+Le premier modèle candidat SARIMA(0,1,5)(0,1,1) est simple, efficace. Donc sans tester les autres, on le prends.
+
+#4. Forcasting avec des modèles ARIMA:
+
+##4.1. Retirer les saisons :
+
+Afin de le faire, on utilise la décomposition précedente, et on fait la soustraction pour avoir un nouveau jeu donnée:
+
+```{r}
+deseasonal_cnt <- count_ma - count_ma.decomposed$seasonal
+```
+
+```{r}
+plot.ts(deseasonal_cnt)
+```
+
+On peux remarquer clairement qu'on a plus de saison sur notre nouveau jeu de donnée, mais on a toujours une tendance, donc on est obligé d'appliquer une differentiation afin de rendre notre jeu de donnée stationnaire:
+
+```{r}
+diff_deseasonal_cnt = diff(deseasonal_cnt)
+plot(diff_deseasonal_cnt)
+```
+
+Apèrs la differentation, c'est devenu très clair qu'il y'a plus de saison, ni de tendance, donc les données sont staionnaire, on affiche acf et pacf afin de pouvoir ectraire les paramètres de notre modèle:
+
+```{r}
+acf(diff_deseasonal_cnt)
+pacf(diff_deseasonal_cnt)
+```
+En visualisant l'acf et le pacf on peux déduire les modèles candidats suivants:
+
+ARIMA(1,1,0), ARIMA(4,1,0),ARIMA(0,1,1), ARIMA(0,1,5), ARIMA (1,1,1), ARIMA(4,1,5)
+
+Ceci car :
+
+d = 1 ( une seule diff)
+
+q = 1 ou q = 5 
+
+p = 1 ou p = 4
+
+On applique le premier modèle candidat: 
+```{r}
+deseasonal_cnt.ARIMA1 <- arima(deseasonal_cnt, order =c(1,1,0))
+```
+
+On Visualise le résultat:
+
+```{r}
+plot(deseasonal_cnt.ARIMA1$residuals)
+```
+```{r}
+acf(deseasonal_cnt.ARIMA1$residuals)
+pacf(deseasonal_cnt.ARIMA1$residuals)
+```
+
+On remarque que les correaltions ne sont pas nuls, et donc il y'a des informations dans le residuls, et donc, le modèle n'est pas le bon.
+
+On essaye le deuxième modèle candidat qui est ARIMA(4,1,0)
+
+```{r}
+deseasonal_cnt.ARIMA2 <- arima(deseasonal_cnt, order =c(4,1,0))
+plot(deseasonal_cnt.ARIMA2$residuals)
+```
+```{r}
+acf(deseasonal_cnt.ARIMA2$residuals)
+pacf(deseasonal_cnt.ARIMA2$residuals)
+```
+
+Par contre pour ce modèle, on peux remarquer clairement que le résiduls est un bruit blanc, ce qui rend ce modèle le bon.
+
+##4.2. Application d'auto ARIMA:
+
+```{r}
+deseasonal_cnt.autoarima <- auto.arima(deseasonal_cnt, seasonal = FALSE)
+deseasonal_cnt.autoarima
+```
+
+On vérifie le résiduls: 
+
+```{r}
+plot(deseasonal_cnt.autoarima$residuals)
+acf(deseasonal_cnt.autoarima$residuals)
+pacf(deseasonal_cnt.autoarima$residuals)
+```
+Le modèle est très performant, on peux voir que le résiduls ne represent que du bruit blanc, ceci est clair dans le plot, car il n'est pas sutrecturé ( pas de saison, ni de tendance), et on peux le remarquer également dans l'acf et le pacf, ou tout les corrélations sont nulls.
+
+##4.3. Evaluate et iterate:
+
+On a reussi a trouvé les modèles ARIMA pour les jeu de données déja vu, le résidus c'est du bruit blanc, donc on peux utiliser les deux modèles. 
+
+Le forecast pour le modèle ARIMA qu'on a obtenu via l'autoarima est bien le suivant:
+
+```{r}
+deseasonal_cnt.cast <- forecast(deseasonal_cnt.autoarima)
+plot(deseasonal_cnt.cast)
+```
+Les marges de confiances sont large, ce qui est logique car le modèle n'est pas aussi simple.
+
+```{r}
+deseasonal_cnt.cast1 <- forecast(deseasonal_cnt.ARIMA2)
+plot(deseasonal_cnt.cast1)
+```
+Les marges de confiances sont large, ce qui est logique car le modèle n'est pas aussi simple.
+
+
+Voici la timeseries original avec les données fitted:
+```{r}
+plot(deseasonal_cnt, col="red") # original
+lines(fitted(deseasonal_cnt.autoarima), col="blue") # fitted
+legend(1, 8600, legend=c("Original", "Fitted"), col=c("red", "blue"), lty=1:2, cex=0.8)
+```
+
+#5. Forcasting: 
+
+Dans ce qui suit on applique le forecast pour l'appliquer sur 25 observations, on commence par déviser le jeu donnée en test et train data set:
+
+```{r}
+end.time = time(deseasonal_cnt)[700]
+train.set <- window(deseasonal_cnt, end=end.time)
+test.set <- window(deseasonal_cnt, start=end.time)
+```
+
+On va utiliser le modèle qu'on a déja appliqué, qui est ARIMA(4,1,0)
+
+```{r}
+manual.fit <- Arima(train.set, order=c(4, 1,0))
+manual.fc <- forecast(manual.fit, h=25)
+print(paste("Accuracy of the manual Arima model : ", accuracy(manual.fc, test.set)[2,"RMSE"]))
+```
+On applique également le forecast pour l'autoarima: 
+
+```{r}
+auto.fit <- auto.arima(train.set, seasonal = FALSE)
+auto.fc <- forecast(auto.fit, h=25)
+print(paste("Accuracy of the auto Arima model : ", accuracy(auto.fc, test.set)[2,"RMSE"]))
+```
+
+Après la construction des deux modèles, on les utilise afin de faire un forecast pour les 25 observations suivantes:
+
+```{r}
+deseasonal_cnt.forecast.manual <- forecast(manual.fit, h=25)
+deseasonal_cnt.forecast.auto <- forecast(auto.fit, h=25)
+
+par(mfrow=c(2,1))
+plot(deseasonal_cnt.forecast.manual, main = "Forecast with manual Arima", include = test.set)
+plot(deseasonal_cnt.forecast.auto, main = "Forecast with auto Arima", include = test.set)
+```
+
+On remarque que le Forecast avec l'auto-Arima est meilleur en terme de marge de confiance, qui est moins large, mais c'est toujours des forcast utilisé uniquement pour les observations de courte terme. 
